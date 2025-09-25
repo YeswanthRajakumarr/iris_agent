@@ -45,11 +45,11 @@ def apply_gradient_theme():
     
     /* Gradient header styling */
     .gradient-header {
-        background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+        background: linear-gradient(90deg, #4007CF 0%, #8C1AE7 100%);
         padding: 1rem 2rem;
         border-radius: 10px;
         margin-bottom: 2rem;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        box-shadow: 0 4px 15px ;
     }
     
     .gradient-header h1 {
@@ -58,14 +58,13 @@ def apply_gradient_theme():
         margin: 0;
         font-size: 2.5rem;
         font-weight: bold;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
     }
     
     /* Gradient cards */
     .gradient-card {
-        background: linear-gradient(135deg, rgba(79,172,254) 0%, rgba(0,242,254) 100%);
+        background: linear-gradient(135deg, rgba(64,7,207,0.4) 0%, rgba(140,26,231,0.3) 100%);
         backdrop-filter: blur(10px);
-        border: 1px solid rgba(79,172,254);
+        border: 1px solid rgba(64,7,207,0.5);
         border-radius: 15px;
         padding: 1.5rem;
         margin: 1rem 0;
@@ -74,7 +73,7 @@ def apply_gradient_theme():
     
     /* Gradient buttons */
     .stButton > button {
-        background: linear-gradient(45deg, #4facfe 0%, #00f2fe 100%);
+        background: linear-gradient(45deg, #4007CF 0%, #8C1AE7 100%);
         color: white;
         border: none;
         border-radius: 25px;
@@ -113,7 +112,7 @@ def apply_gradient_theme():
     
     /* Gradient expander */
     .streamlit-expanderHeader {
-        background: linear-gradient(90deg, rgba(79,172,254,0.3) 0%, rgba(0,242,254,0.2) 100%);
+        background: linear-gradient(90deg, rgba(64,7,207,0.3) 0%, rgba(140,26,231,0.2) 100%);
         border-radius: 10px;
         color: white;
     }
@@ -139,7 +138,7 @@ def apply_gradient_theme():
     
     /* Gradient download button */
     .stDownloadButton > button {
-        background: linear-gradient(45deg, #00f2fe 0%, #4facfe 100%);
+        background: linear-gradient(45deg, #8C1AE7 0%, #4007CF 100%);
         color: white;
         border: none;
         border-radius: 25px;
@@ -150,7 +149,7 @@ def apply_gradient_theme():
     
     /* Custom text styling */
     .gradient-text {
-        background: linear-gradient(45deg, #4facfe, #00f2fe);
+        background: linear-gradient(45deg, #4007CF, #8C1AE7);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -159,7 +158,7 @@ def apply_gradient_theme():
     
     /* Sidebar gradient */
     .css-1d391kg {
-        background: linear-gradient(180deg, #0f4c75 0%, #3282b8 100%);
+        background: linear-gradient(180deg, #4007CF 0%, #8C1AE7 100%);
     }
     
     /* Hide default Streamlit elements */
@@ -174,6 +173,15 @@ def apply_gradient_theme():
     .stFileUploader label {
         color: #ffffff !important;
         font-weight: bold;
+    }
+    
+    /* Make text in gradient cards more visible */
+    .gradient-card h2,
+    .gradient-card h3,
+    .gradient-card p {
+        color: #ffffff !important;
+        font-weight: bold !important;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.8) !important;
     }
     
     /* Make main description visible */
@@ -518,7 +526,7 @@ def main():
     # Main description with gradient card
     st.markdown("""
     <div class="gradient-card">
-        <p style="color: #ffffff; font-size: 1.2rem; text-align: center; margin: 0;">
+        <p style="color: #ffffff; font-size: 1.2rem; text-align: center; margin: 0; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">
             Upload CSV/XLSX files or paste OCPP 1.6 logs to analyze issues and get troubleshooting recommendations.
         </p>
     </div>
@@ -533,7 +541,7 @@ def main():
     with col1:
         st.markdown("""
         <div class="gradient-card">
-            <h2 style="color: white; margin-top: 0;">📝 Paste Logs</h2>
+            <h2 style="color: #ffffff; margin-top: 0; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">📝 Paste Logs</h2>
         </div>
         """, unsafe_allow_html=True)
         log_text = st.text_area(
@@ -550,7 +558,7 @@ def main():
     with col2:
         st.markdown("""
         <div class="gradient-card">
-            <h2 style="color: white; margin-top: 0;">📁 Upload File</h2>
+            <h2 style="color: #ffffff; margin-top: 0; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">📁 Upload File</h2>
         </div>
         """, unsafe_allow_html=True)
         uploaded_file = st.file_uploader(
@@ -668,7 +676,7 @@ def main():
         st.markdown("---")
         st.markdown("""
         <div class="gradient-card">
-            <h2 style="color: white; margin-top: 0;">📋 Example OCPP Logs</h2>
+            <h2 style="color: #ffffff; margin-top: 0; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">📋 Example OCPP Logs</h2>
         </div>
         """, unsafe_allow_html=True)
         
@@ -725,8 +733,8 @@ def main():
     st.markdown("---")
     st.markdown("""
     <div class="gradient-card" style="background-color: #808080; border: 1px solid #666666;">
-        <h3 style="color: white; margin-top: 0;">💡 Instructions</h3>
-        <div style="color: white; line-height: 1.8;">
+        <h3 style="color: #ffffff; margin-top: 0; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">💡 Instructions</h3>
+        <div style="color: #ffffff; line-height: 1.8; font-weight: bold;">
             <ol style="margin: 0; padding-left: 1.5rem;">
                 <li><strong>For text logs</strong>: Paste your OCPP 1.6 logs directly into the text area</li>
                 <li><strong>For files</strong>: Upload a CSV or XLSX file containing log data</li>
