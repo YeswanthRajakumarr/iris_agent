@@ -68,7 +68,8 @@ class IrisAgentApp:
         st.set_page_config(
             page_title=config.app_title,
             page_icon=config.app_icon,
-            layout=config.page_layout,
+            # layout=config.page_layout,
+            layout="wide",
             initial_sidebar_state=config.sidebar_state
         )
         
@@ -245,7 +246,7 @@ class IrisAgentApp:
             use_iris_cms_filtering = st.checkbox(
                 "Use Iris CMS Log Filtering",
                 value=st.session_state.use_iris_cms_filtering,
-                help="Enable Iris CMS specific log filtering (removes HeartBeat, BootNotification, StatusNotificationResponse, MeterValuesResponse)",
+                help="Enable this option if you are using Iris CMS logs for better results",
                 key="iris_cms_filtering_checkbox"
             )
             
@@ -383,7 +384,11 @@ class IrisAgentApp:
                 
                 # Show preview
                 with st.expander("Preview Parsed Content"):
-                    st.text(parsed_text[:1000] + "..." if len(parsed_text) > 1000 else parsed_text)
+                    st.markdown("""
+                    <div style="max-height: 400px; overflow-y: auto; background-color: black; padding: 10px; border-radius: 5px; border: 1px solid #ccc;">
+                        <pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0; font-family: monospace; font-size: 12px;">{}</pre>
+                    </div>
+                    """.format(parsed_text), unsafe_allow_html=True)
                 
                 # Analyze
                 with st.spinner("Analyzing logs..."):

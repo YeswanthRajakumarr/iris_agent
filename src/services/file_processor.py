@@ -1,10 +1,10 @@
 """File processing service for OCPP logs."""
 
+import streamlit as st
 import pandas as pd
 import re
 from io import StringIO
-from typing import Optional, Dict, List, Tuple, Set
-
+from typing import Optional, List, Tuple, Set
 from ..models.analysis import LogFile, TransactionSession
 from ..utils.exceptions import FileProcessingError, FileSizeError
 from ..utils.validators import validate_file_size
@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 class FileProcessor:
     """Service for processing OCPP log files."""
     
-    def __init__(self, max_file_size_mb: int = 5, max_dataframe_rows: int = 50000):
+    def __init__(self, max_file_size_mb: int = 5, max_dataframe_rows: int = 5000):
         """
         Initialize file processor.
         
@@ -57,6 +57,11 @@ class FileProcessor:
             
             # Limit rows for performance
             if len(df) > self.max_dataframe_rows:
+                print (f"🚧 DATAFRAME SIZE: {len(df)}")
+                print (f"MAX DATAFRAME ROWS: {self.max_dataframe_rows}")
+                # show warning to user
+                st.warning(f"The file contains {len(df)} rows, which is greater than the maximum allowed {self.max_dataframe_rows} rows. The file has been truncated to {self.max_dataframe_rows} rows.")
+
                 df = df.head(self.max_dataframe_rows)
                 logger.info(f"DataFrame truncated to {self.max_dataframe_rows} rows for performance")
             
@@ -66,14 +71,16 @@ class FileProcessor:
             else:
                 filtered_df = self._filter_heartbeat_and_boot_notification_messages(df)
             
-            print(f"🚀 {use_iris_cms_filtering}")
+            
             # write to csv
-            filtered_df.to_csv('filtered_df.csv', index=False)
-            return
+            # filtered_df.to_csv('filtered_df.csv', index=False)
             
             # Convert to structured text format
             text_content = self._convert_to_text_format(filtered_df)
-            
+            # write to txt
+            # with open('filtered_df.txt', 'w') as f:
+            #     f.write(text_content)
+
             logger.info(f"Successfully parsed file with {len(filtered_df)} rows")
             return text_content
             
@@ -105,38 +112,28 @@ class FileProcessor:
 
 
     def _convert_to_text_format(self, df: pd.DataFrame) -> str:
-        """Convert dataframe to structured text format."""
-        text_content = "OCPP Log Data:\n\n"
+        """Convert dataframe to CSV-like line format."""
+        text_content = ""
+
+        # add header to 1st line
+        text_content += ",".join(df.columns) + "\n"
         
-        # Add column headers
-        text_content += "Columns: " + ", ".join(df.columns.tolist()) + "\n\n"
-        
-        # Extract transaction sessions
-        transaction_sessions = self._extract_transaction_sessions(df)
-        
-        # Add session analysis
-        text_content += "=== SESSION ANALYSIS ===\n\n"
-        
-        for session in transaction_sessions:
-            text_content += f"--- TRANSACTION SESSION {session.transaction_id} ---\n"
-            
-            for msg_index, (_, row) in enumerate(session.messages):
-                text_content += f"  Message {msg_index + 1}:\n"
-                for col in df.columns:
-                    text_content += f"    {col}: {row[col]}\n"
-                text_content += "\n"
-            
-            text_content += "\n"
-        
-        # Add remaining messages
-        remaining_messages = self._get_remaining_messages(df, transaction_sessions)
-        text_content += "=== OTHER MESSAGES ===\n\n"
-        
-        for msg_index, (_, row) in enumerate(remaining_messages):
-            text_content += f"Message {msg_index + 1}:\n"
+        # Output each row as a CSV line
+        for index, row in df.iterrows():
+            row_values = []
             for col in df.columns:
-                text_content += f"  {col}: {row[col]}\n"
-            text_content += "\n"
+                value = row[col]
+                # Handle NaN values
+                if pd.isna(value):
+                    row_values.append("")
+                else:
+                    # Convert to string and escape quotes if needed
+                    str_value = str(value)
+                    if '"' in str_value:
+                        str_value = str_value.replace('"', '""')
+                    row_values.append(f'"{str_value}"')
+            
+            text_content += ",".join(row_values) + "\n"
         
         return text_content
     

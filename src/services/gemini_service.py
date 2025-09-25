@@ -38,7 +38,7 @@ class GeminiService:
             logger.error(f"Failed to initialize Gemini API: {str(e)}")
             raise APIError(f"Failed to initialize Gemini API: {str(e)}")
     
-    def analyze_logs(self, log_content: str, max_content_size_kb: int = 500) -> AnalysisResult:
+    def analyze_logs(self, log_content: str, max_content_size_kb: int = 4000) -> AnalysisResult:
         """
         Analyze OCPP logs using Gemini AI.
         
@@ -57,6 +57,11 @@ class GeminiService:
             # Sanitize input
             sanitize_input(log_content)
             
+
+            # write to file
+            # with open('before_analysis_log_content.txt', 'w') as f:
+            #     f.write(log_content)
+
             # Limit content size
             max_content_size_bytes = max_content_size_kb * 1024
             if len(log_content) > max_content_size_bytes:
@@ -65,8 +70,16 @@ class GeminiService:
             
             logger.info(f"Starting analysis for content of size: {len(log_content)} characters")
             
+                    # write to file
+            # with open('after_analysis_log_content.txt', 'w') as f:
+            #     f.write(log_content)
+
             # Create analysis prompt
             prompt = self._create_analysis_prompt(log_content)
+
+            # write to file
+            # with open('prompt.txt', 'w') as f:
+            #     f.write(prompt)
             
             # Generate analysis
             start_time = time.time()
@@ -137,11 +150,11 @@ Log Content:
 Important:
 - Report only based on the log content.
 - Focus on charging sessions and analyze each transaction session completely
-- If any data is missing, mark it as "0" or "Not found".
 - Use clear formatting with proper line breaks and bullet points.
 - Structure your response with clear headings and sections.
 - When mentioning Transaction IDs, timestamps, or errors, be specific and clear.
 - Analyze the complete session flow for each transaction ID.
+
 """
     
     def _highlight_key_elements(self, text: str) -> str:
