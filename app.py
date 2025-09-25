@@ -244,6 +244,16 @@ class IrisAgentApp:
         .main .block-container {
             background: transparent;
         }
+        
+        /* Increase sidebar width */
+        .stSidebar {
+            width: 450px !important;
+        }
+        
+        /* Adjust main content area to accommodate wider sidebar */
+        .main .block-container {
+            margin-left: 420px !important;
+        }
         </style>
         """, unsafe_allow_html=True)
     
