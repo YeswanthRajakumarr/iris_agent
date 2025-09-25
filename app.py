@@ -10,7 +10,8 @@ from reportlab.lib import colors
 
 from src.config import config
 from src.models import LogFile, AnalysisResult
-from src.services import FileProcessor, GeminiService, RateLimiter
+from src.services import FileProcessor, RateLimiter
+from src.services.model_provider import ModelProviderFactory, ModelProviderType
 from src.utils import (
     setup_logging,
     get_logger,
@@ -42,23 +43,37 @@ class IrisAgentApp:
         self.rate_limiter = RateLimiter(
             max_requests_per_minute=config.max_requests_per_minute
         )
-        self.gemini_service = None
-        self._initialize_gemini()
+        self.model_provider = None
+        self._initialize_model_provider()
     
-    def _initialize_gemini(self) -> None:
-        """Initialize Gemini service."""
+    def _initialize_model_provider(self) -> None:
+        """Initialize model provider based on configuration."""
         try:
-            if not config.gemini_api_key:
-                raise ConfigurationError("GEMINI_API_KEY not found in environment variables")
-            
-            self.gemini_service = GeminiService(
-                api_key=config.gemini_api_key,
-                max_requests_per_minute=config.max_requests_per_minute
-            )
-            logger.info("Gemini service initialized successfully")
+            if config.model_provider.lower() == "gemini":
+                if not config.gemini_api_key:
+                    raise ConfigurationError("GEMINI_API_KEY not found in environment variables")
+                
+                self.model_provider = ModelProviderFactory.create_provider(
+                    ModelProviderType.GEMINI,
+                    api_key=config.gemini_api_key,
+                    max_requests_per_minute=config.max_requests_per_minute
+                )
+                logger.info("Gemini service initialized successfully")
+                
+            elif config.model_provider.lower() == "ollama":
+                self.model_provider = ModelProviderFactory.create_provider(
+                    ModelProviderType.OLLAMA,
+                    base_url=config.ollama_base_url,
+                    model_name=config.ollama_model_name,
+                    max_requests_per_minute=config.max_requests_per_minute
+                )
+                logger.info("Ollama service initialized successfully")
+                
+            else:
+                raise ConfigurationError(f"Unsupported model provider: {config.model_provider}")
             
         except Exception as e:
-            logger.error(f"Failed to initialize Gemini service: {str(e)}")
+            logger.error(f"Failed to initialize model provider: {str(e)}")
             st.error("⚠️ Service temporarily unavailable. Please try again later.")
             st.stop()
     
@@ -216,6 +231,34 @@ class IrisAgentApp:
     def _render_sidebar(self) -> None:
         """Render the sidebar."""
         with st.sidebar:
+            st.markdown("### 🤖 Model Provider")
+            
+            # Initialize model provider selection
+            if 'selected_model_provider' not in st.session_state:
+                st.session_state.selected_model_provider = config.model_provider
+            
+            # Model provider selection
+            model_provider = st.radio(
+                "Choose AI Model Provider:", ["🤖 Third-party LLM", "🚀 Iris.ai (Local)"],
+                index= 0 if config.model_provider.lower() == "third-party llm" else 1,
+                key="model_provider_radio",
+                help="Select between cloud-based LLM or local Iris.ai models"
+            )
+            
+            # Update session state and config
+            selected_provider = "gemini" if model_provider == "🤖 Third-party LLM" else "ollama"
+            if selected_provider != st.session_state.get('selected_model_provider'):
+                st.session_state.selected_model_provider = selected_provider
+                config.model_provider = selected_provider
+                # Reinitialize model provider
+                self._initialize_model_provider()
+                st.rerun()
+            
+            # Show current provider info
+            if self.model_provider:
+                st.info(f"✅ Using: {self.model_provider.get_provider_name()}")
+            
+            st.markdown("---")
             st.markdown("### 📝 Choose Input Method")
             
             # Initialize session state
@@ -244,7 +287,7 @@ class IrisAgentApp:
             
             # Checkbox for Iris CMS logs filtering
             use_iris_cms_filtering = st.checkbox(
-                "Use Iris CMS Log Filtering",
+                "**Use `Iris CMS` Log Filtering**",
                 value=st.session_state.use_iris_cms_filtering,
                 help="Enable this option if you are using Iris CMS logs for better results",
                 key="iris_cms_filtering_checkbox"
@@ -333,8 +376,8 @@ class IrisAgentApp:
                 # Check rate limit
                 self.rate_limiter.check_rate_limit()
                 
-                # Analyze with Gemini
-                analysis_result = self.gemini_service.analyze_logs(
+                # Analyze with selected model provider
+                analysis_result = self.model_provider.analyze_logs(
                     log_text, 
                     max_content_size_kb=config.max_log_content_size_kb
                 )
@@ -395,7 +438,7 @@ class IrisAgentApp:
                     # Check rate limit
                     self.rate_limiter.check_rate_limit()
                     
-                    analysis_result = self.gemini_service.analyze_logs(
+                    analysis_result = self.model_provider.analyze_logs(
                         parsed_text,
                         max_content_size_kb=config.max_log_content_size_kb
                     )
@@ -459,7 +502,7 @@ class IrisAgentApp:
                     # Check rate limit
                     self.rate_limiter.check_rate_limit()
                     
-                    analysis_result = self.gemini_service.analyze_logs(
+                    analysis_result = self.model_provider.analyze_logs(
                         st.session_state.parsed_example_logs,
                         max_content_size_kb=config.max_log_content_size_kb
                     )

@@ -13,10 +13,17 @@ load_dotenv()
 class AppConfig:
     """Application configuration settings."""
     
+    # Model Provider Configuration
+    model_provider: str = "gemini"  # "gemini" or "ollama"
+    
     # API Configuration
     gemini_api_key: Optional[str] = None
     max_requests_per_minute: int = 10
     request_timeout: int = 60
+    
+    # Ollama Configuration
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model_name: str = "llama3.2"
     
     # File Processing Configuration
     max_file_size_mb: int = 5
@@ -36,7 +43,15 @@ class AppConfig:
     
     def __post_init__(self) -> None:
         """Initialize configuration from environment variables."""
+        # Model provider configuration
+        self.model_provider = os.getenv('MODEL_PROVIDER', self.model_provider)
+        
+        # API configuration
         self.gemini_api_key = os.getenv('GEMINI_API_KEY')
+        
+        # Ollama configuration
+        self.ollama_base_url = os.getenv('OLLAMA_BASE_URL', self.ollama_base_url)
+        self.ollama_model_name = os.getenv('OLLAMA_MODEL_NAME', self.ollama_model_name)
         
         # Override with environment variables if present
         self.max_requests_per_minute = int(os.getenv('MAX_REQUESTS_PER_MINUTE', self.max_requests_per_minute))

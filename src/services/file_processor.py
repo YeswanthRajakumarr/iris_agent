@@ -70,8 +70,7 @@ class FileProcessor:
                 filtered_df = self._filter_iris_cms_logs(df)
             else:
                 filtered_df = self._filter_heartbeat_and_boot_notification_messages(df)
-            
-            
+
             # write to csv
             # filtered_df.to_csv('filtered_df.csv', index=False)
             
