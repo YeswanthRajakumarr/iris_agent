@@ -295,29 +295,79 @@ def parse_file_to_text(file_content, file_type):
             # Read XLSX file
             df = pd.read_excel(file_content)
         
-        # Limit number of rows for performance
-        if len(df) > 10000:
-            df = df.head(10000)
-            logger.info("DataFrame truncated to 10,000 rows for performance")
+        # Limit number of rows for performance - increased to handle larger OCPP logs
+        if len(df) > 50000:
+            df = df.head(50000)
+            logger.info("DataFrame truncated to 50,000 rows for performance")
         
         # Filter out rows containing "HeartBeat" in any column
         heartbeat_mask = df.astype(str).apply(lambda x: x.str.contains('HeartBeat', case=False, na=False)).any(axis=1)
         filtered_df = df[heartbeat_mask == False]
         
-        # Convert DataFrame to text format
+        # Convert DataFrame to text format with improved session grouping
         text_content = "OCPP Log Data:\n\n"
         
         # Add column headers
         text_content += "Columns: " + ", ".join(filtered_df.columns.tolist()) + "\n\n"
         
-        # Add data rows (excluding HeartBeat rows)
-        row_counter = 1
+        # Group messages by transaction ID and session for better analysis
+        text_content += "=== SESSION ANALYSIS ===\n\n"
+        
+        # Extract unique transaction IDs
+        transaction_ids = set()
         for index, row in filtered_df.iterrows():
-            text_content += f"Row {row_counter}:\n"
+            payload = str(row.get('payLoadData', ''))
+            if 'transactionId' in payload:
+                import re
+                # Extract transaction ID from JSON payload
+                match = re.search(r'"transactionId":(\d+)', payload)
+                if match:
+                    transaction_ids.add(int(match.group(1)))
+        
+        # Sort transaction IDs for better organization
+        sorted_transaction_ids = sorted(transaction_ids)
+        
+        # Group messages by transaction ID
+        for tx_id in sorted_transaction_ids:
+            text_content += f"--- TRANSACTION SESSION {tx_id} ---\n"
+            
+            # Find all messages related to this transaction
+            tx_messages = []
+            for index, row in filtered_df.iterrows():
+                payload = str(row.get('payLoadData', ''))
+                if f'"transactionId":{tx_id}' in payload or f'"transactionId":"{tx_id}"' in payload:
+                    tx_messages.append((index, row))
+            
+            # Sort messages by timestamp
+            tx_messages.sort(key=lambda x: x[1].get('real_time', ''))
+            
+            # Add transaction messages
+            for msg_index, (df_index, row) in enumerate(tx_messages):
+                text_content += f"  Message {msg_index + 1}:\n"
+                for col in filtered_df.columns:
+                    text_content += f"    {col}: {row[col]}\n"
+                text_content += "\n"
+            
+            text_content += "\n"
+        
+        # Add remaining messages (non-transaction related)
+        text_content += "=== OTHER MESSAGES ===\n\n"
+        remaining_messages = []
+        for index, row in filtered_df.iterrows():
+            payload = str(row.get('payLoadData', ''))
+            has_transaction = any(f'"transactionId":{tx_id}' in payload or f'"transactionId":"{tx_id}"' in payload 
+                                for tx_id in transaction_ids)
+            if not has_transaction:
+                remaining_messages.append((index, row))
+        
+        # Sort remaining messages by timestamp
+        remaining_messages.sort(key=lambda x: x[1].get('real_time', ''))
+        
+        for msg_index, (df_index, row) in enumerate(remaining_messages):
+            text_content += f"Message {msg_index + 1}:\n"
             for col in filtered_df.columns:
                 text_content += f"  {col}: {row[col]}\n"
             text_content += "\n"
-            row_counter += 1
         
         logger.info(f"Successfully parsed file with {len(filtered_df)} rows")
         return text_content
@@ -386,10 +436,10 @@ def analyze_logs_with_gemini(log_content, model):
         #     st.error("⚠️ Invalid content detected. Please check your input.")
         #     return None
         
-        # Limit log content size for production
-        if len(log_content) > 50000:  # 50KB limit
-            log_content = log_content[:50000] + "\n\n... (Content truncated for processing)"
-            logger.info("Log content truncated to 50KB")
+        # Limit log content size for production - increased to handle larger OCPP logs
+        if len(log_content) > 500000:  # 500KB limit (increased from 50KB)
+            log_content = log_content[:500000] + "\n\n... (Content truncated for processing)"
+            logger.info("Log content truncated to 500KB")
         
         logger.info(f"Starting analysis for content of size: {len(log_content)} characters")
         
@@ -425,16 +475,25 @@ DEFINITIONS:
 - Total Energy Delivered: Sum of energy reported across all successful sessions
 - Pre-charging Failures: Sessions that failed before energy delivery started (authorization failed, connector not available, EV disconnected before charging)
 
+ANALYSIS GUIDELINES:
+- The log data is organized by transaction sessions for better analysis
+- Each transaction session contains StartTransaction, StopTransaction, and related messages
+- Look for complete session flows: Authorize → StartTransaction → Charging → StopTransaction (or) Remote Start → Remote Stop
+- Pay attention to error codes, status changes, and meter readings
+- Calculate energy delivered by comparing meterStart and meterStop values
+- Identify session failures by looking for error responses or abnormal stops
+
 Log Content:
 {log_content}
 
 Important:
 - Report only based on the log content.
-- Focus more on charging sessions, Don't leave any Data
+- Focus on charging sessions and analyze each transaction session completely
 - If any data is missing, mark it as "0" or "Not found".
 - Use clear formatting with proper line breaks and bullet points.
 - Structure your response with clear headings and sections.
 - When mentioning Transaction IDs, timestamps, or errors, be specific and clear.
+- Analyze the complete session flow for each transaction ID.
 """
         
         # Add timeout for production
