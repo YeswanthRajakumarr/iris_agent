@@ -33,7 +33,7 @@ def apply_gradient_theme():
     <style>
     /* Main gradient background */
     .main .block-container {
-        border-radius: 15px;
+        border-radius: 7px;
         margin: 1rem;
     }
     
@@ -47,7 +47,7 @@ def apply_gradient_theme():
     .gradient-header {
         background: linear-gradient(90deg, #4007CF 0%, #8C1AE7 100%);
         padding: 1rem 2rem;
-        border-radius: 10px;
+        border-radius: 7px;
         margin-bottom: 2rem;
         box-shadow: 0 4px 15px ;
     }
@@ -65,7 +65,7 @@ def apply_gradient_theme():
         background: linear-gradient(135deg, rgba(64,7,207,0.4) 0%, rgba(140,26,231,0.3) 100%);
         backdrop-filter: blur(10px);
         border: 1px solid rgba(64,7,207,0.5);
-        border-radius: 15px;
+        border-radius: 7px;
         padding: 1.5rem;
         margin: 1rem 0;
         box-shadow: 0 8px 32px rgba(0,0,0,0.1);
@@ -76,7 +76,7 @@ def apply_gradient_theme():
         background: linear-gradient(45deg, #4007CF 0%, #8C1AE7 100%);
         color: white;
         border: none;
-        border-radius: 25px;
+        border-radius: 7px;
         padding: 0.5rem 2rem;
         font-weight: bold;
         box-shadow: 0 4px 15px rgba(0,0,0,0.2);
@@ -88,24 +88,42 @@ def apply_gradient_theme():
         box-shadow: 0 6px 20px rgba(0,0,0,0.3);
     }
     
+    /* Secondary button styling (grey) */
+    .stButton > button[kind="secondary"] {
+        background: linear-gradient(45deg, #808080 0%, #696969 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 15px !important;
+        padding: 0.5rem 2rem !important;
+        font-weight: bold !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .stButton > button[kind="secondary"]:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.3) !important;
+        background: linear-gradient(45deg, #696969 0%, #555555 100%) !important;
+    }
+    
     /* Gradient text areas */
     .stTextArea > div > div > textarea {
-        background: rgba(255,255,255);
+        background: #ffffff;
         border: 1px solid rgba(255,255,255,0.3);
-        border-radius: 10px;
-        color: white;
+        border-radius: 7px;
+        color: black;
         backdrop-filter: blur(5px);
     }
     
     .stTextArea > div > div > textarea::placeholder {
-        color: rgba(255,255,255,0.7);
+        color: rgba(0,0,0,0.5);
     }
     
     /* Gradient file uploader */
     .stFileUploader > div {
         background: rgba(255,255,255,0.1);
         border: 2px dashed rgba(255,255,255,0.3);
-        border-radius: 15px;
+        border-radius: 7px;
         padding: 2rem;
         backdrop-filter: blur(5px);
     }
@@ -113,7 +131,7 @@ def apply_gradient_theme():
     /* Gradient expander */
     .streamlit-expanderHeader {
         background: linear-gradient(90deg, rgba(64,7,207,0.3) 0%, rgba(140,26,231,0.2) 100%);
-        border-radius: 10px;
+        border-radius: 7px;
         color: white;
     }
     
@@ -121,19 +139,19 @@ def apply_gradient_theme():
     .stSuccess {
         background: linear-gradient(135deg, rgba(76,175,80,0.2) 0%, rgba(76,175,80,0.1) 100%);
         border: 1px solid rgba(76,175,80,0.3);
-        border-radius: 10px;
+        border-radius: 7px;
     }
     
     .stError {
         background: linear-gradient(135deg, rgba(244,67,54,0.2) 0%, rgba(244,67,54,0.1) 100%);
         border: 1px solid rgba(244,67,54,0.3);
-        border-radius: 10px;
+        border-radius: 7px;
     }
     
     .stWarning {
         background: linear-gradient(135deg, rgba(255,152,0,0.2) 0%, rgba(255,152,0,0.1) 100%);
         border: 1px solid rgba(255,152,0,0.3);
-        border-radius: 10px;
+        border-radius: 7px;
     }
     
     /* Gradient download button */
@@ -141,7 +159,7 @@ def apply_gradient_theme():
         background: linear-gradient(45deg, #8C1AE7 0%, #4007CF 100%);
         color: white;
         border: none;
-        border-radius: 25px;
+        border-radius: 7px;
         padding: 0.5rem 2rem;
         font-weight: bold;
         box-shadow: 0 4px 15px rgba(0,0,0,0.2);
@@ -523,11 +541,17 @@ def main():
             <h1 style="color: white; margin: 0; font-size: 2rem;">Retina ⚡️</h1>
             """, unsafe_allow_html=True)
     
-    # Main description with gradient card
+    # Main content area - focused on results
     st.markdown("""
     <div class="gradient-card">
-        <p style="color: #ffffff; font-size: 1.2rem; text-align: center; margin: 0; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">
-            Upload CSV/XLSX files or paste OCPP 1.6 logs to analyze issues and get troubleshooting recommendations.
+        <h2 style="color: #ffffff; text-align: center; margin: 0; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">
+            Welcome to Iris.agent ⚡️
+        </h2>
+        <p style="color: #ffffff; font-size: 1.2rem; text-align: center; margin: 1rem 0; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">
+            OCPP Log Analysis & Troubleshooting Platform
+        </p>
+        <p style="color: #ffffff; text-align: center; margin: 0; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">
+            Use the sidebar to input your logs and get detailed analysis results here.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -535,39 +559,69 @@ def main():
     # Initialize Gemini
     model = initialize_gemini()
     
-    # Create two columns for input methods
-    col1, col2 = st.columns(2)
+    # Initialize button variables
+    analyze_text_btn = False
+    analyze_file_btn = False
+    analyze_example_btn = False
+    load_example_btn = False
+    parse_example_btn = False
     
-    with col1:
-        st.markdown("""
-        <div class="gradient-card">
-            <h2 style="color: #ffffff; margin-top: 0; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">📝 Paste Logs</h2>
-        </div>
-        """, unsafe_allow_html=True)
-        log_text = st.text_area(
-            "Paste your OCPP 1.6 logs here ",
-            height=300,
+    # Sidebar for choosing input method
+    with st.sidebar:
+        st.markdown("### 📝 Choose Input Method")
+        
+        # Initialize session state for selected method
+        if 'selected_input_method' not in st.session_state:
+            st.session_state.selected_input_method = 'paste'
+        
+        # Input method selection
+        input_method = st.radio(
+            "Select how you want to provide your OCPP logs:",
+            ["📝 Paste Logs", "📁 Upload File", "📋 Example Logs"],
+            index=["📝 Paste Logs", "📁 Upload File", "📋 Example Logs"].index(st.session_state.selected_input_method) if st.session_state.selected_input_method in ["📝 Paste Logs", "📁 Upload File", "📋 Example Logs"] else 0
         )
         
-        col_btn1, col_btn2 = st.columns(2)
-        with col_btn1:
-            analyze_text_btn = st.button("Analyze Pasted Logs", type="primary")
-        with col_btn2:
-            load_example_btn = st.button("Load Example Logs", type="secondary")
+        # Update session state
+        st.session_state.selected_input_method = input_method
     
-    with col2:
-        st.markdown("""
-        <div class="gradient-card">
-            <h2 style="color: #ffffff; margin-top: 0; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">📁 Upload File</h2>
-        </div>
-        """, unsafe_allow_html=True)
+    # Initialize other variables
+    log_text = ""
+    uploaded_file = None
+    
+    # Main area for input controls based on selection
+    if st.session_state.selected_input_method == "📝 Paste Logs":
+        st.markdown("### 📝 Paste Your OCPP Logs")
+        log_text = st.text_area(
+            "Paste your OCPP 1.6 logs here",
+            height=300,
+            key="log_text_area",
+            help="Paste your OCPP 1.6 logs directly into this text area"
+        )
+        analyze_text_btn = st.button("Analyze Pasted Logs", type="primary")
+        
+    elif st.session_state.selected_input_method == "📁 Upload File":
+        st.markdown("### 📁 Upload File")
         uploaded_file = st.file_uploader(
             "Choose a CSV or XLSX file",
             type=['csv', 'xlsx'],
             help="Upload a CSV or XLSX file containing OCPP log data"
         )
-        
         analyze_file_btn = st.button("Analyze File", type="primary")
+        
+    elif st.session_state.selected_input_method == "📋 Example Logs":
+        st.markdown("### 📋 Example Logs")
+        st.markdown("Try the app with sample OCPP log data")
+        
+        col_load, col_parse, col_analyze = st.columns(3)
+        
+        with col_load:
+            load_example_btn = st.button("Load Example Logs", type="secondary")
+        
+        with col_parse:
+            parse_example_btn = st.button("Parse Example Logs", type="secondary")
+        
+        with col_analyze:
+            analyze_example_btn = st.button("Analyze Example Logs", type="primary")
     
     # Handle example logs loading
     if load_example_btn:
@@ -576,10 +630,56 @@ def main():
             st.session_state.example_logs_loaded = True
             st.session_state.example_logs_content = example_content
             st.success("Example logs loaded successfully!")
+            st.rerun()
+    
+    # Handle example logs parsing
+    if parse_example_btn:
+        if st.session_state.get('example_logs_content'):
+            with st.spinner("Parsing example logs..."):
+                parsed_example = parse_file_to_text(st.session_state.example_logs_content, 'csv')
+                if parsed_example:
+                    st.session_state.parsed_example_logs = parsed_example
+                    st.success("Example logs parsed successfully!")
+        else:
+            st.warning("Please load example logs first.")
+    
+    # Handle example logs analysis
+    if analyze_example_btn:
+        if st.session_state.get('parsed_example_logs'):
+            with st.spinner("Analyzing example logs..."):
+                analysis_result = analyze_logs_with_gemini(st.session_state.parsed_example_logs, model)
+                
+                if analysis_result:
+                    # Extract and display summary table
+                    summary_data = extract_summary_table(analysis_result)
+                    if summary_data:
+                        st.markdown("### 📈 Session Summary")
+                        df_summary = pd.DataFrame(list(summary_data.items()), columns=['Metric', 'Value'])
+                        st.dataframe(df_summary, use_container_width=True, hide_index=True)
+                    
+                    st.markdown("### 📊 Detailed Analysis")
+                    st.markdown(analysis_result)
+                    
+                    # Add download button for example logs analysis
+                    report_content = create_report_content(analysis_result, log_content=st.session_state.parsed_example_logs, file_name="example_OCPP_log.csv")
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"retina_example_analysis_report_{timestamp}.txt"
+                    
+                    st.download_button(
+                        label="📥 Download Example Report",
+                        data=report_content,
+                        file_name=filename,
+                        mime="text/plain",
+                        type="primary"
+                    )
+                else:
+                    st.error("Failed to analyze the example logs. Please check your API key and try again.")
+        else:
+            st.warning("Please parse the example logs first.")
     
     # Process text input
     if analyze_text_btn and log_text.strip():
-        with st.spinner("Analyzing logs with Gemini..."):
+        with st.spinner("Analyzing logs..."):
             analysis_result = analyze_logs_with_gemini(log_text, model)
             
             if analysis_result:
@@ -633,7 +733,7 @@ def main():
                     st.text(parsed_text[:1000] + "..." if len(parsed_text) > 1000 else parsed_text)
                 
                 # Analyze with Gemini
-                with st.spinner("Analyzing logs with Gemini..."):
+                with st.spinner("Analyzing logs..."):
                     analysis_result = analyze_logs_with_gemini(parsed_text, model)
                 
                 if analysis_result:
@@ -671,80 +771,19 @@ def main():
     if analyze_file_btn and uploaded_file is None:
         st.warning("Please upload a file before analyzing.")
     
-    # Display example logs if loaded
+    # Display example logs content if loaded
     if st.session_state.get('example_logs_loaded', False):
         st.markdown("---")
         st.markdown("""
         <div class="gradient-card">
-            <h2 style="color: #ffffff; margin-top: 0; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">📋 Example OCPP Logs</h2>
+            <h2 style="color: #ffffff; margin-top: 0; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">📋 Example OCPP Logs Content</h2>
         </div>
         """, unsafe_allow_html=True)
         
         # Show the example logs content
         with st.expander("View Example Logs Content"):
             st.text(st.session_state.example_logs_content)
-        
-        # Parse and analyze example logs
-        col_parse, col_analyze = st.columns(2)
-        
-        with col_parse:
-            if st.button("Parse Example Logs", type="secondary"):
-                with st.spinner("Parsing example logs..."):
-                    parsed_example = parse_file_to_text(st.session_state.example_logs_content, 'csv')
-                    if parsed_example:
-                        st.session_state.parsed_example_logs = parsed_example
-                        st.success("Example logs parsed successfully!")
-        
-        with col_analyze:
-            if st.button("Analyze Example Logs", type="primary"):
-                if st.session_state.get('parsed_example_logs'):
-                    with st.spinner("Analyzing example logs with Gemini..."):
-                        analysis_result = analyze_logs_with_gemini(st.session_state.parsed_example_logs, model)
-                        
-                        if analysis_result:
-                            # Extract and display summary table
-                            summary_data = extract_summary_table(analysis_result)
-                            if summary_data:
-                                st.markdown("### 📈 Session Summary")
-                                df_summary = pd.DataFrame(list(summary_data.items()), columns=['Metric', 'Value'])
-                                st.dataframe(df_summary, use_container_width=True, hide_index=True)
-                            
-                            st.markdown("### 📊 Detailed Analysis")
-                            st.markdown(analysis_result)
-                            
-                            # Add download button for example logs analysis
-                            report_content = create_report_content(analysis_result, log_content=st.session_state.parsed_example_logs, file_name="example_OCPP_log.csv")
-                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                            filename = f"retina_example_analysis_report_{timestamp}.txt"
-                            
-                            st.download_button(
-                                label="📥 Download Example Report",
-                                data=report_content,
-                                file_name=filename,
-                                mime="text/plain",
-                                type="primary"
-                            )
-                        else:
-                            st.error("Failed to analyze the example logs. Please check your API key and try again.")
-                else:
-                    st.warning("Please parse the example logs first.")
     
-    # Add footer with instructions
-    st.markdown("---")
-    st.markdown("""
-    <div class="gradient-card" style="background-color: #808080; border: 1px solid #666666;">
-        <h3 style="color: #ffffff; margin-top: 0; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">💡 Instructions</h3>
-        <div style="color: #ffffff; line-height: 1.8; font-weight: bold;">
-            <ol style="margin: 0; padding-left: 1.5rem;">
-                <li><strong>For text logs</strong>: Paste your OCPP 1.6 logs directly into the text area</li>
-                <li><strong>For files</strong>: Upload a CSV or XLSX file containing log data</li>
-                <li><strong>Example logs</strong>: Click "Load Example Logs" to try the app with sample data</li>
-                <li><strong>Analysis</strong>: Click the analyze button to get detailed insights and troubleshooting steps</li>
-                <li><strong>Download Report</strong>: After analysis, click "📥 Download Report" to save the results as a text file</li>
-            </ol>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
