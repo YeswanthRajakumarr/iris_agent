@@ -317,15 +317,33 @@ def parse_file_to_text(file_content, file_type):
         transaction_ids = set()
         for index, row in filtered_df.iterrows():
             payload = str(row.get('payLoadData', ''))
-            if 'transactionId' in payload:
+            if 'transactionId' in payload.lower():
                 import re
-                # Extract transaction ID from JSON payload
-                match = re.search(r'"transactionId":(\d+)', payload)
-                if match:
-                    transaction_ids.add(int(match.group(1)))
+                # Extract transaction ID from JSON payload - handle multiple formats
+                patterns = [
+                    r'"transactionId":\s*(\d+)',  # Numeric: "transactionId": 123
+                    r'"transactionId":\s*"(\d+)"',  # String: "transactionId": "123"
+                    r'"transactionId":\s*(\d+\.\d+)',  # Decimal: "transactionId": 123.0
+                    r'"transactionId":\s*"(\d+\.\d+)"',  # String decimal: "transactionId": "123.0"
+                    r'"transactionid":\s*(\d+)',  # Case insensitive: "transactionid": 123
+                    r'"transactionid":\s*"(\d+)"',  # Case insensitive: "transactionid": "123"
+                    r'"TransactionId":\s*(\d+)',  # Capital T: "TransactionId": 123
+                    r'"TransactionId":\s*"(\d+)"',  # Capital T: "TransactionId": "123"
+                ]
+                
+                for pattern in patterns:
+                    match = re.search(pattern, payload)
+                    if match:
+                        try:
+                            tx_id = int(float(match.group(1)))  # Convert to int, handling decimals
+                            transaction_ids.add(tx_id)
+                            break
+                        except (ValueError, TypeError):
+                            continue
         
         # Sort transaction IDs for better organization
         sorted_transaction_ids = sorted(transaction_ids)
+        logger.info(f"Found {len(sorted_transaction_ids)} unique transaction sessions: {sorted_transaction_ids}")
         
         # Group messages by transaction ID
         for tx_id in sorted_transaction_ids:
@@ -335,11 +353,26 @@ def parse_file_to_text(file_content, file_type):
             tx_messages = []
             for index, row in filtered_df.iterrows():
                 payload = str(row.get('payLoadData', ''))
-                if f'"transactionId":{tx_id}' in payload or f'"transactionId":"{tx_id}"' in payload:
+                # Check multiple transaction ID formats (case insensitive)
+                tx_patterns = [
+                    f'"transactionId":{tx_id}',
+                    f'"transactionId":"{tx_id}"',
+                    f'"transactionId": {tx_id}',
+                    f'"transactionId": "{tx_id}"',
+                    f'"transactionId":{tx_id}.0',
+                    f'"transactionId":"{tx_id}.0"',
+                    f'"transactionid":{tx_id}',
+                    f'"transactionid":"{tx_id}"',
+                    f'"TransactionId":{tx_id}',
+                    f'"TransactionId":"{tx_id}"',
+                ]
+                
+                if any(pattern in payload for pattern in tx_patterns):
                     tx_messages.append((index, row))
             
             # Sort messages by timestamp
             tx_messages.sort(key=lambda x: x[1].get('real_time', ''))
+            logger.info(f"Transaction {tx_id}: Found {len(tx_messages)} messages")
             
             # Add transaction messages
             for msg_index, (df_index, row) in enumerate(tx_messages):
@@ -355,8 +388,25 @@ def parse_file_to_text(file_content, file_type):
         remaining_messages = []
         for index, row in filtered_df.iterrows():
             payload = str(row.get('payLoadData', ''))
-            has_transaction = any(f'"transactionId":{tx_id}' in payload or f'"transactionId":"{tx_id}"' in payload 
-                                for tx_id in transaction_ids)
+            # Check if this message belongs to any transaction using improved pattern matching
+            has_transaction = False
+            for tx_id in transaction_ids:
+                tx_patterns = [
+                    f'"transactionId":{tx_id}',
+                    f'"transactionId":"{tx_id}"',
+                    f'"transactionId": {tx_id}',
+                    f'"transactionId": "{tx_id}"',
+                    f'"transactionId":{tx_id}.0',
+                    f'"transactionId":"{tx_id}.0"',
+                    f'"transactionid":{tx_id}',
+                    f'"transactionid":"{tx_id}"',
+                    f'"TransactionId":{tx_id}',
+                    f'"TransactionId":"{tx_id}"',
+                ]
+                if any(pattern in payload for pattern in tx_patterns):
+                    has_transaction = True
+                    break
+            
             if not has_transaction:
                 remaining_messages.append((index, row))
         
@@ -478,7 +528,7 @@ DEFINITIONS:
 ANALYSIS GUIDELINES:
 - The log data is organized by transaction sessions for better analysis
 - Each transaction session contains StartTransaction, StopTransaction, and related messages
-- Look for complete session flows: Authorize → StartTransaction → Charging → StopTransaction (or) Remote Start → Remote Stop
+- Look for complete session flows: Authorize → StartTransaction → Charging → StopTransaction (or) RemoteStartTransaction → RemoteStopTransaction
 - Pay attention to error codes, status changes, and meter readings
 - Calculate energy delivered by comparing meterStart and meterStop values
 - Identify session failures by looking for error responses or abnormal stops
