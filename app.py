@@ -430,6 +430,7 @@ Log Content:
 
 Important:
 - Report only based on the log content.
+- Focus more on charging sessions, Don't leave any Data
 - If any data is missing, mark it as "0" or "Not found".
 - Use clear formatting with proper line breaks and bullet points.
 - Structure your response with clear headings and sections.
@@ -694,18 +695,20 @@ def main():
         input_method = st.radio(
             "Select how you want to provide your OCPP logs:",
             ["📝 Paste Logs", "📁 Upload File", "📋 Example Logs"],
-            index=["📝 Paste Logs", "📁 Upload File", "📋 Example Logs"].index(st.session_state.selected_input_method) if st.session_state.selected_input_method in ["📝 Paste Logs", "📁 Upload File", "📋 Example Logs"] else 0
+            key="input_method_radio"
         )
         
-        # Update session state
-        st.session_state.selected_input_method = input_method
+        # Update session state immediately when selection changes
+        if input_method != st.session_state.get('selected_input_method'):
+            st.session_state.selected_input_method = input_method
+            st.rerun()
     
     # Initialize other variables
     log_text = ""
     uploaded_file = None
     
     # Main area for input controls based on selection
-    if st.session_state.selected_input_method == "📝 Paste Logs":
+    if input_method == "📝 Paste Logs":
         st.markdown("### 📝 Paste Your OCPP Logs")
         log_text = st.text_area(
             "Paste your OCPP 1.6 logs here",
@@ -715,7 +718,7 @@ def main():
         )
         analyze_text_btn = st.button("Analyze Pasted Logs", type="primary")
         
-    elif st.session_state.selected_input_method == "📁 Upload File":
+    elif input_method == "📁 Upload File":
         st.markdown("### 📁 Upload File")
         uploaded_file = st.file_uploader(
             "Choose a CSV or XLSX file",
@@ -724,7 +727,7 @@ def main():
         )
         analyze_file_btn = st.button("Analyze File", type="primary")
         
-    elif st.session_state.selected_input_method == "📋 Example Logs":
+    elif input_method == "📋 Example Logs":
         st.markdown("### 📋 Example Logs")
         st.markdown("Try the app with sample OCPP log data")
         
