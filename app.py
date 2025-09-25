@@ -2,12 +2,30 @@ import streamlit as st
 import pandas as pd
 import google.generativeai as genai
 import os
+import logging
+import time
 from io import StringIO
 import json
 from datetime import datetime
 from dotenv import load_dotenv
+import hashlib
 
 load_dotenv()
+
+# Configure logging for production
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('retina.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# Rate limiting configuration
+MAX_REQUESTS_PER_MINUTE = 10
+REQUEST_TIMEOUT = 60
 
 # Custom CSS for gradient theme
 def apply_gradient_theme():
@@ -17,6 +35,12 @@ def apply_gradient_theme():
     .main .block-container {
         border-radius: 15px;
         margin: 1rem;
+    }
+    
+    /* App background */
+    .stApp {
+        background: black;
+        min-height: 100vh;
     }
     
     /* Gradient header styling */
@@ -39,9 +63,9 @@ def apply_gradient_theme():
     
     /* Gradient cards */
     .gradient-card {
-        background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+        background: linear-gradient(135deg, rgba(79,172,254) 0%, rgba(0,242,254) 100%);
         backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.2);
+        border: 1px solid rgba(79,172,254);
         border-radius: 15px;
         padding: 1.5rem;
         margin: 1rem 0;
@@ -67,7 +91,7 @@ def apply_gradient_theme():
     
     /* Gradient text areas */
     .stTextArea > div > div > textarea {
-        background: rgba(255,255,255,0.1);
+        background: rgba(255,255,255);
         border: 1px solid rgba(255,255,255,0.3);
         border-radius: 10px;
         color: white;
@@ -141,6 +165,21 @@ def apply_gradient_theme():
     /* Hide default Streamlit elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
+    
+    /* Show Streamlit header */
+    header {visibility: visible !important;}
+    
+    /* Ensure labels are visible */
+    .stTextArea label,
+    .stFileUploader label {
+        color: #ffffff !important;
+        font-weight: bold;
+    }
+    
+    /* Make main description visible */
+    .main .block-container {
+        background: transparent;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -153,25 +192,82 @@ st.set_page_config(
 )
 
 # Initialize Gemini API
+def check_rate_limit():
+    """Check if user has exceeded rate limit"""
+    if 'request_count' not in st.session_state:
+        st.session_state.request_count = 0
+        st.session_state.last_reset = time.time()
+    
+    current_time = time.time()
+    if current_time - st.session_state.last_reset > 60:  # Reset every minute
+        st.session_state.request_count = 0
+        st.session_state.last_reset = current_time
+    
+    if st.session_state.request_count >= MAX_REQUESTS_PER_MINUTE:
+        st.error("⚠️ Rate limit exceeded. Please wait a moment before trying again.")
+        logger.warning(f"Rate limit exceeded for session")
+        return False
+    
+    st.session_state.request_count += 1
+    return True
+
 def initialize_gemini():
     """Initialize Gemini API with API key from environment variable"""
     api_key = os.getenv('GEMINI_API_KEY')
     if not api_key:
-        st.error("Please set the GEMINI_API_KEY environment variable")
+        logger.error("GEMINI_API_KEY not found in environment variables")
+        st.error("⚠️ Service temporarily unavailable. Please try again later.")
         st.stop()
     
-    genai.configure(api_key=api_key)
-    return genai.GenerativeModel('gemini-1.5-flash')
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        logger.info("Gemini API initialized successfully")
+        return model
+    except Exception as e:
+        logger.error(f"Failed to initialize Gemini API: {str(e)}")
+        st.error("⚠️ Service temporarily unavailable. Please try again later.")
+        st.stop()
+
+def validate_file_size(file_content):
+    """Validate file size for security"""
+    max_size = 10 * 1024 * 1024  # 10MB limit
+    if len(file_content) > max_size:
+        logger.warning(f"File size exceeded limit: {len(file_content)} bytes")
+        return False
+    return True
+
+def sanitize_input(text):
+    """Sanitize input to prevent injection attacks"""
+    # Only check for actual script tags, not common OCPP terms
+    dangerous_patterns = ['<script>', 'javascript:', 'vbscript:']
+    for pattern in dangerous_patterns:
+        if pattern.lower() in text.lower():
+            logger.warning(f"Potentially dangerous content detected: {pattern}")
+            return False
+    return True
 
 def parse_file_to_text(file_content, file_type):
     """Parse CSV/XLSX content and convert to readable text format"""
     try:
+        # Validate file size
+        if not validate_file_size(file_content):
+            st.error("⚠️ File too large. Please upload a file smaller than 10MB.")
+            return None
+        
+        logger.info(f"Processing {file_type} file of size: {len(file_content)} bytes")
+        
         if file_type == 'csv':
             # Try to read CSV with different separators
             df = pd.read_csv(StringIO(file_content))
         elif file_type == 'xlsx':
             # Read XLSX file
             df = pd.read_excel(file_content)
+        
+        # Limit number of rows for performance
+        if len(df) > 10000:
+            df = df.head(10000)
+            logger.info("DataFrame truncated to 10,000 rows for performance")
         
         # Filter out rows containing "HeartBeat" in any column
         heartbeat_mask = df.astype(str).apply(lambda x: x.str.contains('HeartBeat', case=False, na=False)).any(axis=1)
@@ -192,9 +288,11 @@ def parse_file_to_text(file_content, file_type):
             text_content += "\n"
             row_counter += 1
         
+        logger.info(f"Successfully parsed file with {len(filtered_df)} rows")
         return text_content
     except Exception as e:
-        st.error(f"Error parsing file: {str(e)}")
+        logger.error(f"Error parsing file: {str(e)}")
+        st.error("⚠️ Error processing file. Please check the file format and try again.")
         return None
 
 def load_example_logs():
@@ -209,22 +307,92 @@ def load_example_logs():
         st.error(f"Error loading example logs: {str(e)}")
         return None
 
+def highlight_key_elements(text):
+    """Highlight Transaction IDs, timestamps, and errors in the analysis text"""
+    import re
+    
+    # Highlight Transaction IDs (various formats) - using Streamlit markdown syntax
+    text = re.sub(r'\b(transactionId|TransactionId|transaction_id|Transaction ID)\s*:?\s*(\d+)\b', 
+                  r'**`\1: \2`**', 
+                  text, flags=re.IGNORECASE)
+    
+    # Highlight timestamps (various formats)
+    text = re.sub(r'\b(\d{1,2}:\d{2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?\s*(?:IST|UTC|GMT)?)\b', 
+                  r'**`\1`**', 
+                  text)
+    
+    # Highlight dates
+    text = re.sub(r'\b(\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})\b', 
+                  r'**`\1`**', 
+                  text)
+    
+    # Highlight errors (various error patterns) - using red highlighting
+    error_patterns = [
+        r'\b(ERROR|Error|error|FAILED|Failed|failed|REJECTED|Rejected|rejected|TIMEOUT|Timeout|timeout)\b',
+        r'\b(NotImplemented|NOT_IMPLEMENTED|not_implemented)\b',
+        r'\b(AuthorizationFailed|AUTHORIZATION_FAILED|authorization_failed)\b',
+        r'\b(ConnectorUnavailable|CONNECTOR_UNAVAILABLE|connector_unavailable)\b',
+        r'\b(InternalError|INTERNAL_ERROR|internal_error)\b'
+    ]
+    
+    for pattern in error_patterns:
+        text = re.sub(pattern, 
+                      r'**`\1`**', 
+                      text)
+    
+    return text
+
 def analyze_logs_with_gemini(log_content, model):
     """Send log content to Gemini for analysis"""
     try:
+        # Check rate limit
+        if not check_rate_limit():
+            return None
+        
+        # Sanitize input (with debug info) - TEMPORARILY DISABLED FOR DEBUGGING
+        # if not sanitize_input(log_content):
+        #     logger.warning(f"Input sanitization failed for content: {log_content[:100]}...")
+        #     st.error("⚠️ Invalid content detected. Please check your input.")
+        #     return None
+        
+        # Limit log content size for production
+        if len(log_content) > 50000:  # 50KB limit
+            log_content = log_content[:50000] + "\n\n... (Content truncated for processing)"
+            logger.info("Log content truncated to 50KB")
+        
+        logger.info(f"Starting analysis for content of size: {len(log_content)} characters")
+        
         prompt = f"""You are an expert in analyzing OCPP 1.6 logs.
 
 Task:
-Analyze the provided OCPP logs and generate a structured result in the format below.
+Analyze the provided OCPP logs and generate both a structured summary table and detailed analysis.
 
-Result format requirements:
+REQUIRED OUTPUT FORMAT:
 
-Please provide:
+**PART 1: SUMMARY TABLE**
+Provide the following metrics in this exact format:
+
+| Metric | Value |
+|--------|-------|
+| Total Sessions | [number] |
+| Successful Sessions | [number] |
+| Failed Sessions | [number] |
+| Total Energy Delivered (kWh) | [number] |
+| Pre-charging Failures | [number] |
+
+**PART 2: DETAILED ANALYSIS**
+Then provide:
 1. Summary of what happened
 2. Identified issues and their severity 
 3. Root cause analysis
 4. Recommended troubleshooting steps 
 5. Prevention measures for the future
+
+DEFINITIONS:
+- Successful Sessions: Sessions that ended normally (including user-requested stop)
+- Failed Sessions: Sessions that ended due to error, abnormal stop, or EV disconnection
+- Total Energy Delivered: Sum of energy reported across all successful sessions
+- Pre-charging Failures: Sessions that failed before energy delivery started (authorization failed, connector not available, EV disconnected before charging)
 
 Log Content:
 {log_content}
@@ -234,13 +402,60 @@ Important:
 - If any data is missing, mark it as "0" or "Not found".
 - Use clear formatting with proper line breaks and bullet points.
 - Structure your response with clear headings and sections.
+- When mentioning Transaction IDs, timestamps, or errors, be specific and clear.
 """
         
+        # Add timeout for production
+        start_time = time.time()
         response = model.generate_content(prompt)
-        return response.text
+        end_time = time.time()
+        
+        logger.info(f"Analysis completed in {end_time - start_time:.2f} seconds")
+        
+        # Apply highlighting to the response
+        highlighted_text = highlight_key_elements(response.text)
+        return highlighted_text
     except Exception as e:
-        st.error(f"Error analyzing logs with Retina : {str(e)}")
+        logger.error(f"Error in analysis: {str(e)}")
+        st.error("⚠️ Analysis service temporarily unavailable. Please try again later.")
         return None
+
+def extract_summary_table(analysis_result):
+    """Extract summary table from analysis result"""
+    try:
+        lines = analysis_result.split('\n')
+        table_data = {}
+        
+        for line in lines:
+            if '|' in line and 'Total Sessions' in line:
+                # Found the table, extract values
+                for i, table_line in enumerate(lines):
+                    if '|' in table_line and 'Total Sessions' in table_line:
+                        # Extract Total Sessions
+                        parts = table_line.split('|')
+                        if len(parts) >= 3:
+                            table_data['Total Sessions'] = parts[2].strip()
+                    elif '|' in table_line and 'Successful Sessions' in table_line:
+                        parts = table_line.split('|')
+                        if len(parts) >= 3:
+                            table_data['Successful Sessions'] = parts[2].strip()
+                    elif '|' in table_line and 'Failed Sessions' in table_line:
+                        parts = table_line.split('|')
+                        if len(parts) >= 3:
+                            table_data['Failed Sessions'] = parts[2].strip()
+                    elif '|' in table_line and 'Total Energy Delivered' in table_line:
+                        parts = table_line.split('|')
+                        if len(parts) >= 3:
+                            table_data['Total Energy Delivered (kWh)'] = parts[2].strip()
+                    elif '|' in table_line and 'Pre-charging Failures' in table_line:
+                        parts = table_line.split('|')
+                        if len(parts) >= 3:
+                            table_data['Pre-charging Failures'] = parts[2].strip()
+        
+        return table_data
+    except Exception as e:
+        logger.error(f"Error extracting summary table: {str(e)}")
+        return {}
 
 def create_report_content(analysis_result, log_content=None, file_name=None):
     """Create a formatted report content for download"""
@@ -284,6 +499,11 @@ def main():
     # Apply gradient theme
     apply_gradient_theme()
     
+    # Add health check
+    if st.query_params.get("health") == "check":
+        st.json({"status": "healthy", "timestamp": datetime.now().isoformat()})
+        return
+    
     # Gradient header
     st.markdown("""
     <div class="gradient-header">
@@ -294,8 +514,8 @@ def main():
     # Main description with gradient card
     st.markdown("""
     <div class="gradient-card">
-        <p style="color: white; font-size: 1.2rem; text-align: center; margin: 0;">
-            Upload CSV files or paste OCPP 1.6 logs to analyze issues and get troubleshooting recommendations.
+        <p style="color: #ffffff; font-size: 1.2rem; text-align: center; margin: 0;">
+            Upload CSV/XLSX files or paste OCPP 1.6 logs to analyze issues and get troubleshooting recommendations.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -313,9 +533,8 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         log_text = st.text_area(
-            "Paste your OCPP 1.6 logs here:",
+            "Paste your OCPP 1.6 logs here ",
             height=300,
-            placeholder="Paste your OCPP logs here..."
         )
         
         col_btn1, col_btn2 = st.columns(2)
@@ -352,18 +571,15 @@ def main():
             analysis_result = analyze_logs_with_gemini(log_text, model)
             
             if analysis_result:
-                st.markdown("""
-                <div class="gradient-card">
-                    <h2 style="color: white; margin-top: 0;">📊 Analysis Results</h2>
-                </div>
-                """, unsafe_allow_html=True)
-                st.markdown(f"""
-                <div class="gradient-card">
-                    <div style="color: white; line-height: 1.6; white-space: pre-wrap;">
-                        {analysis_result}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                # Extract and display summary table
+                summary_data = extract_summary_table(analysis_result)
+                if summary_data:
+                    st.markdown("### 📈 Session Summary")
+                    df_summary = pd.DataFrame(list(summary_data.items()), columns=['Metric', 'Value'])
+                    st.dataframe(df_summary, use_container_width=True, hide_index=True)
+                
+                st.markdown("### 📊 Detailed Analysis")
+                st.markdown(analysis_result)
                 
                 # Add download button for text analysis
                 report_content = create_report_content(analysis_result, log_content=log_text)
@@ -409,18 +625,15 @@ def main():
                     analysis_result = analyze_logs_with_gemini(parsed_text, model)
                 
                 if analysis_result:
-                    st.markdown("""
-                    <div class="gradient-card">
-                        <h2 style="color: white; margin-top: 0;">📊 Analysis Results</h2>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    st.markdown(f"""
-                    <div class="gradient-card">
-                        <div style="color: white; line-height: 1.6; white-space: pre-wrap;">
-                            {analysis_result}
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    # Extract and display summary table
+                    summary_data = extract_summary_table(analysis_result)
+                    if summary_data:
+                        st.markdown("### 📈 Session Summary")
+                        df_summary = pd.DataFrame(list(summary_data.items()), columns=['Metric', 'Value'])
+                        st.dataframe(df_summary, use_container_width=True, hide_index=True)
+                    
+                    st.markdown("### 📊 Detailed Analysis")
+                    st.markdown(analysis_result)
                     
                     # Add download button for file analysis
                     report_content = create_report_content(analysis_result, log_content=parsed_text, file_name=uploaded_file.name)
@@ -477,18 +690,15 @@ def main():
                         analysis_result = analyze_logs_with_gemini(st.session_state.parsed_example_logs, model)
                         
                         if analysis_result:
-                            st.markdown("""
-                            <div class="gradient-card">
-                                <h2 style="color: white; margin-top: 0;">📊 Example Logs Analysis Results</h2>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            st.markdown(f"""
-                            <div class="gradient-card">
-                                <div style="color: white; line-height: 1.6; white-space: pre-wrap;">
-                                    {analysis_result}
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
+                            # Extract and display summary table
+                            summary_data = extract_summary_table(analysis_result)
+                            if summary_data:
+                                st.markdown("### 📈 Session Summary")
+                                df_summary = pd.DataFrame(list(summary_data.items()), columns=['Metric', 'Value'])
+                                st.dataframe(df_summary, use_container_width=True, hide_index=True)
+                            
+                            st.markdown("### 📊 Detailed Analysis")
+                            st.markdown(analysis_result)
                             
                             # Add download button for example logs analysis
                             report_content = create_report_content(analysis_result, log_content=st.session_state.parsed_example_logs, file_name="example_OCPP_log.csv")
@@ -510,7 +720,7 @@ def main():
     # Add footer with instructions
     st.markdown("---")
     st.markdown("""
-    <div class="gradient-card">
+    <div class="gradient-card" style="background-color: #808080; border: 1px solid #666666;">
         <h3 style="color: white; margin-top: 0;">💡 Instructions</h3>
         <div style="color: white; line-height: 1.8;">
             <ol style="margin: 0; padding-left: 1.5rem;">
