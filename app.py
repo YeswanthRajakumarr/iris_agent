@@ -504,12 +504,16 @@ def main():
         st.json({"status": "healthy", "timestamp": datetime.now().isoformat()})
         return
     
-    # Gradient header
-    st.markdown("""
-    <div class="gradient-header">
-        <h1>Retina ⚡️</h1>
-    </div>
-    """, unsafe_allow_html=True)
+    # Logo display in top-left corner
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        # Try to display logo
+        try:
+            st.image("Iris_agent_logo.png", width=120)
+        except:
+            st.markdown("""
+            <h1 style="color: white; margin: 0; font-size: 2rem;">Retina ⚡️</h1>
+            """, unsafe_allow_html=True)
     
     # Main description with gradient card
     st.markdown("""
