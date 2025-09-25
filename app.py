@@ -776,11 +776,11 @@ def main():
         <p style="color: #ffffff; font-size: 1.2rem; text-align: center; margin: 1rem 0; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">
             OCPP Log Analysis & Troubleshooting Platform
         </p>
-        <p style="color: #ffffff; text-align: center; margin: 0; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">
-            Use the sidebar to input your logs and get detailed analysis results here.
-        </p>
     </div>
     """, unsafe_allow_html=True)
+    
+    # Info message for better results
+    st.info("💡 **For optimal analysis results, upload focused data such as a single charging session, specific transaction logs, or one day's worth of charger data rather than large multi-day files**")
     
     # Initialize Gemini
     model = initialize_gemini()
