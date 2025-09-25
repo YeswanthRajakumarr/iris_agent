@@ -216,9 +216,9 @@ def apply_gradient_theme():
 
 # Configure page
 st.set_page_config(
-    page_title="Retina",
-    page_icon="⚡️",
-    layout="wide",
+    page_title="Iris.agent",
+    page_icon="Iris_agent_logo.png",
+    layout="centered",
     initial_sidebar_state="expanded"
 )
 
@@ -262,7 +262,7 @@ def initialize_gemini():
 
 def validate_file_size(file_content):
     """Validate file size for security"""
-    max_size = 10 * 1024 * 1024  # 10MB limit
+    max_size = 5 * 1024 * 1024  # 5MB limit
     if len(file_content) > max_size:
         logger.warning(f"File size exceeded limit: {len(file_content)} bytes")
         return False
@@ -283,7 +283,7 @@ def parse_file_to_text(file_content, file_type):
     try:
         # Validate file size
         if not validate_file_size(file_content):
-            st.error("⚠️ File too large. Please upload a file smaller than 10MB.")
+            st.error("⚠️ File too large. Please upload a file smaller than 5MB.")
             return None
         
         logger.info(f"Processing {file_type} file of size: {len(file_content)} bytes")

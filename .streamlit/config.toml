@@ -3,12 +3,13 @@ headless = true
 port = 8501
 enableCORS = false
 enableXsrfProtection = true
+maxUploadSize = 5
 
 [browser]
 gatherUsageStats = false
 
 [theme]
-primaryColor = "#4facfe"
+primaryColor = "#4007CF"
 backgroundColor = "#000000"
 secondaryBackgroundColor = "#1a1a1a"
 textColor = "#ffffff"
