@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import os
 from datetime import datetime
 from io import BytesIO
 from reportlab.lib.pagesizes import A4
@@ -46,9 +47,32 @@ class IrisAgentApp:
         self.model_provider = None
         self._initialize_model_provider()
     
+    def _check_ollama_availability(self) -> bool:
+        """Check if Ollama is available without initializing the service."""
+        try:
+            import requests
+            response = requests.get("http://localhost:11434/api/tags", timeout=2)
+            return response.status_code == 200
+        except Exception:
+            return False
+    
+    def _get_available_ollama_models(self) -> list:
+        """Get list of available Ollama models."""
+        try:
+            import requests
+            response = requests.get("http://localhost:11434/api/tags", timeout=2)
+            if response.status_code == 200:
+                models = response.json().get('models', [])
+                return [model['name'] for model in models]
+            return []
+        except Exception:
+            return []
+    
     def _initialize_model_provider(self) -> None:
         """Initialize model provider based on configuration."""
         try:
+            logger.info(f"Initializing model provider: {config.model_provider}")
+            
             if config.model_provider.lower() == "gemini":
                 if not config.gemini_api_key:
                     raise ConfigurationError("GEMINI_API_KEY not found in environment variables")
@@ -61,21 +85,43 @@ class IrisAgentApp:
                 logger.info("Gemini service initialized successfully")
                 
             elif config.model_provider.lower() == "ollama":
-                self.model_provider = ModelProviderFactory.create_provider(
-                    ModelProviderType.OLLAMA,
-                    base_url=config.ollama_base_url,
-                    model_name=config.ollama_model_name,
-                    max_requests_per_minute=config.max_requests_per_minute
+                # Check if we're in a cloud environment
+                is_cloud_env = (
+                    os.getenv('STREAMLIT_CLOUD') or 
+                    os.getenv('STREAMLIT_SHARING_MODE') or
+                    os.getenv('STREAMLIT_SERVER_PORT') == '8501' or  # Default Streamlit Cloud port
+                    'streamlit' in os.getenv('PATH', '').lower() or  # Streamlit in PATH
+                    os.path.exists('/app')  # Streamlit Cloud app directory
                 )
-                logger.info("Ollama service initialized successfully")
+                if is_cloud_env:
+                    logger.warning("Ollama not available in cloud environment, falling back to Gemini")
+                    if not config.gemini_api_key:
+                        raise ConfigurationError("GEMINI_API_KEY not found in environment variables for cloud deployment")
+                    
+                    self.model_provider = ModelProviderFactory.create_provider(
+                        ModelProviderType.GEMINI,
+                        api_key=config.gemini_api_key,
+                        max_requests_per_minute=config.max_requests_per_minute
+                    )
+                    logger.info("Gemini service initialized successfully (fallback from Ollama)")
+                else:
+                    self.model_provider = ModelProviderFactory.create_provider(
+                        ModelProviderType.OLLAMA,
+                        base_url=config.ollama_base_url,
+                        model_name=config.ollama_model_name,
+                        max_requests_per_minute=config.max_requests_per_minute
+                    )
+                    logger.info("Ollama service initialized successfully")
                 
             else:
                 raise ConfigurationError(f"Unsupported model provider: {config.model_provider}")
             
         except Exception as e:
             logger.error(f"Failed to initialize model provider: {str(e)}")
+            # Don't stop the app, just show error and continue
             st.error("⚠️ Service temporarily unavailable. Please try again later.")
-            st.stop()
+            # Set a fallback provider
+            self.model_provider = None
     
     def run(self) -> None:
         """Run the main application."""
@@ -207,8 +253,17 @@ class IrisAgentApp:
         col1, col2 = st.columns([1, 4])
         with col1:
             try:
-                st.image(config.app_icon, width=120)
-            except:
+                # Check if logo file exists
+                if os.path.exists(config.app_icon):
+                    st.image(config.app_icon, width=120)
+                else:
+                    # Fallback to text logo if image not found
+                    st.markdown("""
+                    <h1 style="color: white; margin: 0; font-size: 2rem;">Iris ⚡️</h1>
+                    """, unsafe_allow_html=True)
+            except Exception as e:
+                logger.warning(f"Could not load logo image: {str(e)}")
+                # Fallback to text logo
                 st.markdown("""
                 <h1 style="color: white; margin: 0; font-size: 2rem;">Iris ⚡️</h1>
                 """, unsafe_allow_html=True)
@@ -238,25 +293,123 @@ class IrisAgentApp:
                 st.session_state.selected_model_provider = config.model_provider
             
             # Model provider selection
-            model_provider = st.radio(
-                "Choose AI Model Provider:", ["🤖 Third-party LLM", "🚀 Iris.ai (Local)"],
-                index= 0 if config.model_provider.lower() == "third-party llm" else 1,
-                key="model_provider_radio",
-                help="Select between cloud-based LLM or local Iris.ai models"
+            # Check if we're in cloud environment
+            is_cloud_env = (
+                os.getenv('STREAMLIT_CLOUD') or 
+                os.getenv('STREAMLIT_SHARING_MODE') or
+                os.getenv('STREAMLIT_SERVER_PORT') == '8501' or  # Default Streamlit Cloud port
+                'streamlit' in os.getenv('PATH', '').lower() or  # Streamlit in PATH
+                os.path.exists('/app')  # Streamlit Cloud app directory
             )
+            
+            if is_cloud_env:
+                # In cloud environment, show both options but indicate cloud limitation
+                st.info("🌐 **Cloud Environment**: Both options available, but local models will fallback to Gemini")
+                model_provider = st.radio(
+                    "Choose AI Model Provider:", ["🤖 Third-party LLM", "🚀 Iris.ai (Local)"],
+                    index= 0 if config.model_provider.lower() == "gemini" else 1,
+                    key="model_provider_radio",
+                    help="Select between cloud-based LLM or local Iris.ai models (local will fallback to Gemini in cloud)"
+                )
+            else:
+                # In local environment, always show both options
+                ollama_available = self._check_ollama_availability()
+                
+                if ollama_available:
+                    # Show both options normally
+                    model_provider = st.radio(
+                        "Choose AI Model Provider:", ["🤖 Third-party LLM", "🚀 Iris.ai (Local)"],
+                        index= 0 if config.model_provider.lower() == "gemini" else 1,
+                        key="model_provider_radio",
+                        help="Select between cloud-based LLM or local Iris.ai models"
+                    )
+                else:
+                    # Show both options but with warning about local availability
+                    st.warning("⚠️ Local Models are not available right now. You can still select them, but they will fallback to Cloud LLM.")
+                    model_provider = st.radio(
+                        "Choose AI Model Provider:", ["🤖 Third-party LLM", "🚀 Iris.ai (Local)"],
+                        index= 0 if config.model_provider.lower() == "gemini" else 1,
+                        key="model_provider_radio",
+                        help="Select between cloud-based LLM or local Iris.ai models (local will fallback to Gemini if unavailable)"
+                    )
             
             # Update session state and config
             selected_provider = "gemini" if model_provider == "🤖 Third-party LLM" else "ollama"
             if selected_provider != st.session_state.get('selected_model_provider'):
                 st.session_state.selected_model_provider = selected_provider
                 config.model_provider = selected_provider
-                # Reinitialize model provider
-                self._initialize_model_provider()
-                st.rerun()
+                # Reinitialize model provider with error handling
+                try:
+                    self._initialize_model_provider()
+                    if self.model_provider:  # Only rerun if initialization was successful
+                        st.rerun()
+                    else:
+                        st.error("⚠️ Model provider initialization failed. Please try again.")
+                except Exception as e:
+                    logger.error(f"Failed to switch to {selected_provider}: {str(e)}")
+                    if selected_provider == "ollama":
+                        if is_cloud_env:
+                            st.info("ℹ️ Ollama selected but not available in cloud environment. Using Gemini instead.")
+                        else:
+                            st.warning("⚠️ Ollama is not available locally. Using Gemini instead.")
+                        # Keep the selection but use gemini
+                        config.model_provider = "gemini"
+                        st.session_state.selected_model_provider = "gemini"
+                        try:
+                            self._initialize_model_provider()
+                            if self.model_provider:
+                                st.rerun()
+                            else:
+                                st.error("⚠️ Service temporarily unavailable. Please try again later.")
+                        except Exception as gemini_error:
+                            logger.error(f"Failed to initialize Gemini fallback: {str(gemini_error)}")
+                            st.error("⚠️ Service temporarily unavailable. Please try again later.")
+                    elif selected_provider == "gemini":
+                        # Gemini initialization failed
+                        st.error("⚠️ Failed to initialize Gemini. Please check your API key and try again.")
+                        # Revert to previous provider
+                        previous_provider = "ollama" if st.session_state.get('selected_model_provider') == "gemini" else "gemini"
+                        config.model_provider = previous_provider
+                        st.session_state.selected_model_provider = previous_provider
+                        st.rerun()
+                    else:
+                        st.error(f"⚠️ Failed to initialize {selected_provider}. Please try again.")
             
             # Show current provider info
             if self.model_provider:
-                st.info(f"✅ Using: {self.model_provider.get_provider_name()}")
+                provider_name = self.model_provider.get_provider_name()
+                
+                # Check if there's a mismatch between selection and actual provider
+                selected_provider = "gemini" if model_provider == "🤖 Third-party LLM" else "ollama"
+                actual_provider = "gemini" if "Gemini" in provider_name else "ollama"
+                
+                if selected_provider == "ollama" and actual_provider == "gemini":
+                    # User selected Ollama but we're using Gemini (fallback)
+                    if is_cloud_env:
+                        st.info(f"✅ Using: {provider_name} (Ollama selected but not available in cloud)")
+                    else:
+                        st.warning(f"⚠️ Using: {provider_name} (Ollama selected but not available locally)")
+                else:
+                    # Normal case - using what was selected
+                    st.info(f"✅ Using: {provider_name}")
+                
+                # Show available models if using Ollama
+                if "Ollama" in provider_name and not is_cloud_env:
+                    available_models = self._get_available_ollama_models()
+                    if available_models:
+                        with st.expander("📋 Available Ollama Models"):
+                            for model in available_models:
+                                st.text(f"• {model}")
+                            st.caption("💡 To use a different model, update the OLLAMA_MODEL_NAME environment variable")
+            else:
+                # No model provider available - show retry option
+                st.error("⚠️ No model provider available")
+                if st.button("🔄 Retry Model Initialization", type="secondary"):
+                    try:
+                        self._initialize_model_provider()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Retry failed: {str(e)}")
             
             st.markdown("---")
             st.markdown("### 📝 Choose Input Method")
@@ -371,6 +524,10 @@ class IrisAgentApp:
     
     def _analyze_text(self, log_text: str) -> None:
         """Analyze text input."""
+        if not self.model_provider:
+            st.error("⚠️ Model provider is not available. Please try switching models or refresh the page.")
+            return
+            
         try:
             with st.spinner("Analyzing logs..."):
                 # Check rate limit
@@ -395,6 +552,10 @@ class IrisAgentApp:
     
     def _analyze_file(self, uploaded_file) -> None:
         """Analyze uploaded file."""
+        if not self.model_provider:
+            st.error("⚠️ Model provider is not available. Please try switching models or refresh the page.")
+            return
+            
         try:
             # Determine file type
             file_type = uploaded_file.name.split('.')[-1].lower()
@@ -496,6 +657,10 @@ class IrisAgentApp:
     
     def _analyze_example_logs(self) -> None:
         """Analyze example logs."""
+        if not self.model_provider:
+            st.error("⚠️ Model provider is not available. Please try switching models or refresh the page.")
+            return
+            
         if st.session_state.get('parsed_example_logs'):
             try:
                 with st.spinner("Analyzing example logs..."):

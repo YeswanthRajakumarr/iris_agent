@@ -25,10 +25,17 @@ class OllamaService(ModelProvider):
             model_name: Name of the Ollama model to use
             max_requests_per_minute: Rate limit for requests
         """
+        import os
         self.base_url = base_url.rstrip('/')
         self.model_name = model_name
         self.max_requests_per_minute = max_requests_per_minute
-        self._check_ollama_connection()
+        
+        # Only check connection if not in cloud environment
+        is_cloud_env = os.getenv('STREAMLIT_CLOUD') or os.getenv('STREAMLIT_SHARING_MODE')
+        if not is_cloud_env:
+            self._check_ollama_connection()
+        else:
+            logger.warning("OllamaService initialized in cloud environment - connection check skipped")
     
     def _check_ollama_connection(self) -> None:
         """Check if Ollama is running and the model is available."""
@@ -44,10 +51,22 @@ class OllamaService(ModelProvider):
             
             if self.model_name not in model_names:
                 logger.warning(f"Model '{self.model_name}' not found. Available models: {model_names}")
-                # Try to use the first available model
-                if model_names:
+                # Try to find a suitable language model (not embedding model)
+                language_models = [name for name in model_names if not any(embed in name.lower() for embed in ['embed', 'embedding'])]
+                
+                if language_models:
+                    # Prefer llama models if available
+                    llama_models = [name for name in language_models if 'llama' in name.lower()]
+                    if llama_models:
+                        self.model_name = llama_models[0]
+                        logger.info(f"Using available llama model: {self.model_name}")
+                    else:
+                        self.model_name = language_models[0]
+                        logger.info(f"Using available language model: {self.model_name}")
+                elif model_names:
+                    # Fallback to any available model
                     self.model_name = model_names[0]
-                    logger.info(f"Using available model: {self.model_name}")
+                    logger.warning(f"Using available model (may not be suitable for text generation): {self.model_name}")
                 else:
                     raise APIError(f"No models available in Ollama. Please pull a model first.")
             
@@ -303,6 +322,12 @@ Important:
     
     def is_available(self) -> bool:
         """Check if the provider is available."""
+        import os
+        # In cloud environment, Ollama is never available
+        is_cloud_env = os.getenv('STREAMLIT_CLOUD') or os.getenv('STREAMLIT_SHARING_MODE')
+        if is_cloud_env:
+            return False
+            
         try:
             response = requests.get(f"{self.base_url}/api/tags", timeout=5)
             return response.status_code == 200

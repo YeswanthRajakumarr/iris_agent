@@ -4,6 +4,9 @@ import os
 from dataclasses import dataclass
 from typing import Optional
 from dotenv import load_dotenv
+from ..utils.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -43,8 +46,22 @@ class AppConfig:
     
     def __post_init__(self) -> None:
         """Initialize configuration from environment variables."""
-        # Model provider configuration
+        # Model provider configuration - default to gemini for cloud deployment
         self.model_provider = os.getenv('MODEL_PROVIDER', self.model_provider)
+        
+        # For cloud deployment, ensure we use gemini if ollama is not available
+        if self.model_provider.lower() == "ollama":
+            # Check if we're in a cloud environment (Streamlit Cloud)
+            is_cloud_env = (
+                os.getenv('STREAMLIT_CLOUD') or 
+                os.getenv('STREAMLIT_SHARING_MODE') or
+                os.getenv('STREAMLIT_SERVER_PORT') == '8501' or  # Default Streamlit Cloud port
+                'streamlit' in os.getenv('PATH', '').lower() or  # Streamlit in PATH
+                os.path.exists('/app')  # Streamlit Cloud app directory
+            )
+            if is_cloud_env:
+                logger.warning("Ollama not available in cloud environment, switching to Gemini")
+                self.model_provider = "gemini"
         
         # API configuration
         self.gemini_api_key = os.getenv('GEMINI_API_KEY')

@@ -74,6 +74,12 @@ class ModelProviderFactory:
             )
         
         elif provider_type == ModelProviderType.OLLAMA:
+            import os
+            # Check if we're in a cloud environment
+            is_cloud_env = os.getenv('STREAMLIT_CLOUD') or os.getenv('STREAMLIT_SHARING_MODE')
+            if is_cloud_env:
+                raise ValueError("Ollama is not available in cloud environment. Please use Gemini instead.")
+            
             from .ollama_service import OllamaService
             return OllamaService(
                 base_url=kwargs.get('base_url', 'http://localhost:11434'),
@@ -87,6 +93,7 @@ class ModelProviderFactory:
     @staticmethod
     def get_available_providers() -> list[ModelProviderType]:
         """Get list of available providers."""
+        import os
         available = []
         
         # Check Gemini availability
@@ -97,14 +104,16 @@ class ModelProviderFactory:
         except ImportError:
             pass
         
-        # Check Ollama availability
-        try:
-            from .ollama_service import OllamaService
-            # Try to create a service to check availability
-            service = OllamaService()
-            if service.is_available():
-                available.append(ModelProviderType.OLLAMA)
-        except Exception:
-            pass
+        # Check Ollama availability - only if not in cloud environment
+        is_cloud_env = os.getenv('STREAMLIT_CLOUD') or os.getenv('STREAMLIT_SHARING_MODE')
+        if not is_cloud_env:
+            try:
+                from .ollama_service import OllamaService
+                # Try to create a service to check availability
+                service = OllamaService()
+                if service.is_available():
+                    available.append(ModelProviderType.OLLAMA)
+            except Exception:
+                pass
         
         return available
